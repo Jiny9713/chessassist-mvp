@@ -2,7 +2,9 @@ package com.example
 
 import android.app.Activity
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import android.util.Log
@@ -10,6 +12,8 @@ import android.widget.Button
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
+import androidx.core.content.ContextCompat
+import android.Manifest
 import com.example.capture.CaptureManager
 import com.example.api.ChessvisionRepository
 import com.example.api.StockfishRepository
@@ -40,6 +44,26 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+    private val requestNotificationPermission =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            if (granted) {
+                startOverlayService(this)
+            }
+        }
+
+    private fun startOverlayServiceWithPermission() {
+        if (Build.VERSION.SDK_INT >= 33 &&
+            ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.POST_NOTIFICATIONS
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            requestNotificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+        } else {
+            startOverlayService(this)
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -54,7 +78,7 @@ class MainActivity : AppCompatActivity() {
 
         captureManager = CaptureManager(this)
         if (Settings.canDrawOverlays(this)) {
-            startOverlayService(this)
+            startOverlayServiceWithPermission()
             startCaptureIntent.launch(captureManager.createScreenCaptureIntent())
         } else {
             val intent = Intent(
@@ -68,7 +92,7 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         if (Settings.canDrawOverlays(this)) {
-            startOverlayService(this)
+            startOverlayServiceWithPermission()
         }
     }
 
@@ -76,7 +100,7 @@ class MainActivity : AppCompatActivity() {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode == REQUEST_OVERLAY_PERMISSION) {
             if (Settings.canDrawOverlays(this)) {
-                startOverlayService(this)
+                startOverlayServiceWithPermission()
                 startCaptureIntent.launch(captureManager.createScreenCaptureIntent())
             }
         }

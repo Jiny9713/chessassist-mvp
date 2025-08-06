@@ -9,6 +9,7 @@ import android.os.Bundle
 import android.provider.Settings
 import android.util.Log
 import android.widget.Button
+import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
@@ -41,6 +42,14 @@ class MainActivity : AppCompatActivity() {
             if (result.resultCode == Activity.RESULT_OK && result.data != null) {
                 captureManager.startProjection(result.resultCode, result.data!!)
                 startAnalysisLoop()
+            }
+        }
+
+    private val requestOverlayPermission: ActivityResultLauncher<Intent> =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+            if (Settings.canDrawOverlays(this)) {
+                startOverlayServiceWithPermission()
+                startCaptureIntent.launch(captureManager.createScreenCaptureIntent())
             }
         }
 
@@ -85,7 +94,7 @@ class MainActivity : AppCompatActivity() {
                 Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
                 Uri.parse("package:$packageName")
             )
-            startActivityForResult(intent, REQUEST_OVERLAY_PERMISSION)
+            requestOverlayPermission.launch(intent)
         }
     }
 
@@ -93,16 +102,6 @@ class MainActivity : AppCompatActivity() {
         super.onResume()
         if (Settings.canDrawOverlays(this)) {
             startOverlayServiceWithPermission()
-        }
-    }
-
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        super.onActivityResult(requestCode, resultCode, data)
-        if (requestCode == REQUEST_OVERLAY_PERMISSION) {
-            if (Settings.canDrawOverlays(this)) {
-                startOverlayServiceWithPermission()
-                startCaptureIntent.launch(captureManager.createScreenCaptureIntent())
-            }
         }
     }
 
@@ -165,7 +164,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     companion object {
-        private const val REQUEST_OVERLAY_PERMISSION = 1002
         private const val TAG = "MainActivity"
     }
 }

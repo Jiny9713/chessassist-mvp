@@ -23,11 +23,6 @@ android {
     kotlinOptions {
         jvmTarget = "17"
     }
-
-    sourceSets["main"].apply {
-        manifest.srcFile("src/main/AndroidManifest.xml")
-        java.srcDirs("api", "capture", "overlay", ".")
-    }
 }
 
 dependencies {

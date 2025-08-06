@@ -16,7 +16,8 @@ import android.view.Surface
 import androidx.appcompat.app.AppCompatActivity
 
 /**
- * Handles screen capture using [MediaProjection]. Captured images are kept in memory as [Bitmap].
+ * Handles screen capture using [MediaProjection]. Each capture returns a [Bitmap]
+ * to the caller.
  *
  * Manifest requirements:
  * ```xml
@@ -38,8 +39,6 @@ class CaptureManager(private val context: Context) {
     private var imageReader: ImageReader? = null
     private var captureThread: HandlerThread? = null
     private var captureHandler: Handler? = null
-
-    private val bitmaps = mutableListOf<Bitmap>()
 
     /** Create an intent to request screen capture permission. */
     fun createScreenCaptureIntent(): Intent = projectionManager.createScreenCaptureIntent()
@@ -84,10 +83,10 @@ class CaptureManager(private val context: Context) {
         })
     }
 
-    /** Capture a single frame and store it in [bitmaps]. */
-    fun captureOnce() {
-        val reader = imageReader ?: return
-        val image = reader.acquireLatestImage() ?: return
+    /** Capture a single frame and return it as a [Bitmap]. */
+    fun captureOnce(): Bitmap? {
+        val reader = imageReader ?: return null
+        val image = reader.acquireLatestImage() ?: return null
         val plane = image.planes[0]
         val buffer = plane.buffer
         val pixelStride = plane.pixelStride
@@ -103,9 +102,10 @@ class CaptureManager(private val context: Context) {
         )
         bitmap.copyPixelsFromBuffer(buffer)
         val cropped = Bitmap.createBitmap(bitmap, 0, 0, width, height)
-        bitmaps.add(cropped)
+        bitmap.recycle()
         image.close()
-        Log.d(TAG, "Captured bitmap ${cropped.width}x${cropped.height}, total=${bitmaps.size}")
+        Log.d(TAG, "Captured bitmap ${cropped.width}x${cropped.height}")
+        return cropped
     }
 
     /** Stop capturing and release resources. */
@@ -124,8 +124,6 @@ class CaptureManager(private val context: Context) {
         Log.d(TAG, "Projection stopped")
     }
 
-    /** Retrieve captured bitmaps. */
-    fun getBitmaps(): List<Bitmap> = bitmaps
 }
 
 /** Example activity showing how to request permission and start captures. */

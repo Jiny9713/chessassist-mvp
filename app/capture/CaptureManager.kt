@@ -15,6 +15,12 @@ import android.util.Log
 import android.view.Surface
 import androidx.appcompat.app.AppCompatActivity
 import java.util.concurrent.LinkedBlockingQueue
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 
 /**
  * Handles screen capture using [MediaProjection]. Each capture returns a [Bitmap]
@@ -30,6 +36,8 @@ class CaptureManager(private val context: Context) {
     companion object {
         private const val TAG = "CaptureManager"
         private const val MAX_IMAGES = 2
+        // Default capture interval suitable for testing; tweak per device performance.
+        private const val DEFAULT_FRAME_INTERVAL_MS = 1000L
     }
 
     private val projectionManager =
@@ -41,6 +49,7 @@ class CaptureManager(private val context: Context) {
     private var captureThread: HandlerThread? = null
     private var captureHandler: Handler? = null
     private val bitmapQueue = LinkedBlockingQueue<Bitmap>(1)
+    private var periodicCaptureJob: Job? = null
 
     /** Create an intent to request screen capture permission. */
     fun createScreenCaptureIntent(): Intent = projectionManager.createScreenCaptureIntent()
@@ -54,8 +63,9 @@ class CaptureManager(private val context: Context) {
     private fun setupCaptureResources() {
         val metrics = context.resources.displayMetrics
         val density = metrics.densityDpi
-        val width = metrics.widthPixels
-        val height = metrics.heightPixels
+        // Use half of the screen resolution to reduce memory/CPU usage; adjust as needed.
+        val width = metrics.widthPixels / 2
+        val height = metrics.heightPixels / 2
 
         imageReader = ImageReader.newInstance(width, height, PixelFormat.RGBA_8888, MAX_IMAGES)
         captureThread = HandlerThread("ScreenCapture").apply { start() }
@@ -99,14 +109,19 @@ class CaptureManager(private val context: Context) {
         Log.d(TAG, "Virtual display created: ${width}x${height}")
     }
 
-    /** Capture screen on a fixed interval. */
-    fun startPeriodicCapture(intervalMs: Long = 5000L) {
-        captureHandler?.post(object : Runnable {
-            override fun run() {
+    /**
+     * Capture screen on a fixed interval using coroutines.
+     * The default interval of [DEFAULT_FRAME_INTERVAL_MS] works well for testing
+     * but can be tuned per device for performance.
+     */
+    fun startPeriodicCapture(frameIntervalMs: Long = DEFAULT_FRAME_INTERVAL_MS) {
+        periodicCaptureJob?.cancel()
+        periodicCaptureJob = CoroutineScope(Dispatchers.Default).launch {
+            while (isActive) {
                 captureOnce()
-                captureHandler?.postDelayed(this, intervalMs)
+                delay(frameIntervalMs)
             }
-        })
+        }
     }
 
     /** Capture a single frame and return it as a [Bitmap]. */
@@ -114,6 +129,7 @@ class CaptureManager(private val context: Context) {
 
     /** Stop capturing and release resources. */
     fun stopProjection() {
+        periodicCaptureJob?.cancel()
         captureHandler?.removeCallbacksAndMessages(null)
         captureThread?.quitSafely()
         captureThread = null

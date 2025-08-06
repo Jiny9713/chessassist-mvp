@@ -40,6 +40,14 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+    private val requestOverlayPermission =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+            if (Settings.canDrawOverlays(this)) {
+                startOverlayService(this)
+                startCaptureIntent.launch(captureManager.createScreenCaptureIntent())
+            }
+        }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -61,7 +69,7 @@ class MainActivity : AppCompatActivity() {
                 Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
                 Uri.parse("package:$packageName")
             )
-            startActivityForResult(intent, REQUEST_OVERLAY_PERMISSION)
+            requestOverlayPermission.launch(intent)
         }
     }
 
@@ -69,16 +77,6 @@ class MainActivity : AppCompatActivity() {
         super.onResume()
         if (Settings.canDrawOverlays(this)) {
             startOverlayService(this)
-        }
-    }
-
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        super.onActivityResult(requestCode, resultCode, data)
-        if (requestCode == REQUEST_OVERLAY_PERMISSION) {
-            if (Settings.canDrawOverlays(this)) {
-                startOverlayService(this)
-                startCaptureIntent.launch(captureManager.createScreenCaptureIntent())
-            }
         }
     }
 
@@ -141,7 +139,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     companion object {
-        private const val REQUEST_OVERLAY_PERMISSION = 1002
         private const val TAG = "MainActivity"
     }
 }

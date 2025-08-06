@@ -14,8 +14,10 @@ import com.example.api.StockfishRepository
 import com.example.overlay.startOverlayService
 import com.example.overlay.updateOverlayText
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * Main activity that ties together screen capture, FEN extraction, Stockfish
@@ -65,13 +67,13 @@ class MainActivity : AppCompatActivity() {
      * loop continues.
      */
     private fun startAnalysisLoop(intervalMillis: Long = 5000L) {
-        lifecycleScope.launch {
+        lifecycleScope.launch(Dispatchers.Default) {
             while (isActive) {
                 var bestMove: String? = null
 
                 // Capture screen
                 val bitmap = try {
-                    captureManager.captureOnce()
+                    withContext(Dispatchers.IO) { captureManager.captureOnce() }
                 } catch (e: Exception) {
                     Log.e(TAG, "Capture failed", e)
                     null

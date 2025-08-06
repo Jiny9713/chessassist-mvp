@@ -6,12 +6,14 @@ import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
 import android.util.Log
+import android.widget.Button
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import com.example.capture.CaptureManager
 import com.example.api.ChessvisionRepository
 import com.example.api.StockfishRepository
 import com.example.overlay.startOverlayService
+import com.example.overlay.stopOverlayService
 import com.example.overlay.updateOverlayText
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -29,6 +31,16 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        val stopButton = Button(this).apply {
+            text = "Stop Overlay"
+            setOnClickListener {
+                stopOverlayService(this@MainActivity)
+                finish()
+            }
+        }
+        setContentView(stopButton)
+
         captureManager = CaptureManager(this)
         val started = startOverlayService(this)
         if (!started) {
@@ -110,6 +122,7 @@ class MainActivity : AppCompatActivity() {
     override fun onDestroy() {
         super.onDestroy()
         captureManager.stopProjection()
+        stopOverlayService(this)
     }
 
     companion object {

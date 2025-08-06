@@ -5,7 +5,8 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.INTERNET" />
 
-    <application>
+    <application
+        android:theme="@style/Theme.Chessassist">
         <activity
             android:name=".MainActivity"
             android:exported="true">

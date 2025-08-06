@@ -29,8 +29,12 @@ class OverlayService : Service() {
         super.onCreate()
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
         addOverlay()
-        startForeground(NOTIFICATION_ID, createNotification())
         instance = this
+    }
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        startForeground(NOTIFICATION_ID, createNotification())
+        return START_NOT_STICKY
     }
 
     override fun onDestroy() {

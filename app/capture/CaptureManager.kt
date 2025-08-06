@@ -14,6 +14,7 @@ import android.os.HandlerThread
 import android.util.Log
 import android.view.Surface
 import androidx.appcompat.app.AppCompatActivity
+import java.util.concurrent.LinkedBlockingQueue
 
 /**
  * Handles screen capture using [MediaProjection]. Each capture returns a [Bitmap]
@@ -39,6 +40,7 @@ class CaptureManager(private val context: Context) {
     private var imageReader: ImageReader? = null
     private var captureThread: HandlerThread? = null
     private var captureHandler: Handler? = null
+    private val bitmapQueue = LinkedBlockingQueue<Bitmap>(1)
 
     /** Create an intent to request screen capture permission. */
     fun createScreenCaptureIntent(): Intent = projectionManager.createScreenCaptureIntent()
@@ -58,6 +60,30 @@ class CaptureManager(private val context: Context) {
         imageReader = ImageReader.newInstance(width, height, PixelFormat.RGBA_8888, MAX_IMAGES)
         captureThread = HandlerThread("ScreenCapture").apply { start() }
         captureHandler = Handler(captureThread!!.looper)
+        imageReader!!.setOnImageAvailableListener({ reader ->
+            val image = reader.acquireLatestImage() ?: return@setOnImageAvailableListener
+            val plane = image.planes[0]
+            val buffer = plane.buffer
+            val pixelStride = plane.pixelStride
+            val rowStride = plane.rowStride
+            val w = image.width
+            val h = image.height
+            val rowPadding = rowStride - pixelStride * w
+
+            val bitmap = Bitmap.createBitmap(
+                w + rowPadding / pixelStride,
+                h,
+                Bitmap.Config.ARGB_8888
+            )
+            bitmap.copyPixelsFromBuffer(buffer)
+            val cropped = Bitmap.createBitmap(bitmap, 0, 0, w, h)
+            bitmap.recycle()
+            image.close()
+            if (!bitmapQueue.offer(cropped)) {
+                cropped.recycle()
+            }
+            Log.d(TAG, "Captured bitmap ${cropped.width}x${cropped.height}")
+        }, captureHandler)
 
         val surface: Surface = imageReader!!.surface
         virtualDisplay = mediaProjection?.createVirtualDisplay(
@@ -84,29 +110,7 @@ class CaptureManager(private val context: Context) {
     }
 
     /** Capture a single frame and return it as a [Bitmap]. */
-    fun captureOnce(): Bitmap? {
-        val reader = imageReader ?: return null
-        val image = reader.acquireLatestImage() ?: return null
-        val plane = image.planes[0]
-        val buffer = plane.buffer
-        val pixelStride = plane.pixelStride
-        val rowStride = plane.rowStride
-        val width = image.width
-        val height = image.height
-        val rowPadding = rowStride - pixelStride * width
-
-        val bitmap = Bitmap.createBitmap(
-            width + rowPadding / pixelStride,
-            height,
-            Bitmap.Config.ARGB_8888
-        )
-        bitmap.copyPixelsFromBuffer(buffer)
-        val cropped = Bitmap.createBitmap(bitmap, 0, 0, width, height)
-        bitmap.recycle()
-        image.close()
-        Log.d(TAG, "Captured bitmap ${cropped.width}x${cropped.height}")
-        return cropped
-    }
+    fun captureOnce(): Bitmap? = bitmapQueue.poll()
 
     /** Stop capturing and release resources. */
     fun stopProjection() {
@@ -118,6 +122,11 @@ class CaptureManager(private val context: Context) {
         virtualDisplay = null
         imageReader?.close()
         imageReader = null
+        var b = bitmapQueue.poll()
+        while (b != null) {
+            b.recycle()
+            b = bitmapQueue.poll()
+        }
 
         mediaProjection?.stop()
         mediaProjection = null

@@ -7,6 +7,7 @@ import android.os.Bundle
 import android.provider.Settings
 import android.util.Log
 import android.widget.Button
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import com.example.capture.CaptureManager
@@ -15,8 +16,8 @@ import com.example.api.StockfishRepository
 import com.example.overlay.startOverlayService
 import com.example.overlay.stopOverlayService
 import com.example.overlay.updateOverlayText
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -30,6 +31,14 @@ class MainActivity : AppCompatActivity() {
     private lateinit var captureManager: CaptureManager
     private val chessvisionRepository = ChessvisionRepository.create()
     private val stockfishRepository = StockfishRepository.create()
+
+    private val startCaptureIntent =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            if (result.resultCode == Activity.RESULT_OK && result.data != null) {
+                captureManager.startProjection(result.resultCode, result.data!!)
+                startAnalysisLoop()
+            }
+        }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -46,6 +55,7 @@ class MainActivity : AppCompatActivity() {
         captureManager = CaptureManager(this)
         if (Settings.canDrawOverlays(this)) {
             startOverlayService(this)
+            startCaptureIntent.launch(captureManager.createScreenCaptureIntent())
         } else {
             val intent = Intent(
                 Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
@@ -53,10 +63,6 @@ class MainActivity : AppCompatActivity() {
             )
             startActivityForResult(intent, REQUEST_OVERLAY_PERMISSION)
         }
-        startActivityForResult(
-            captureManager.createScreenCaptureIntent(),
-            REQUEST_CAPTURE
-        )
     }
 
     override fun onResume() {
@@ -68,12 +74,10 @@ class MainActivity : AppCompatActivity() {
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
-        if (requestCode == REQUEST_CAPTURE && resultCode == Activity.RESULT_OK && data != null) {
-            captureManager.startProjection(resultCode, data)
-            startAnalysisLoop()
-        } else if (requestCode == REQUEST_OVERLAY_PERMISSION) {
+        if (requestCode == REQUEST_OVERLAY_PERMISSION) {
             if (Settings.canDrawOverlays(this)) {
                 startOverlayService(this)
+                startCaptureIntent.launch(captureManager.createScreenCaptureIntent())
             }
         }
     }
@@ -133,7 +137,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     companion object {
-        private const val REQUEST_CAPTURE = 1001
         private const val REQUEST_OVERLAY_PERMISSION = 1002
         private const val TAG = "MainActivity"
     }

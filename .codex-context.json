@@ -1,0 +1,6 @@
+{
+  "project": "chessassist-mvp",
+  "description": "안드로이드에서 체스닷컴 게임 보드 인식 및 best move를 오버레이로 표시하는 개인용 MVP",
+  "language": "Kotlin",
+  "components": ["CaptureManager", "FENExtractor", "StockfishApi", "OverlayService"]
+}

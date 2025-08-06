@@ -124,8 +124,12 @@ class CaptureManager(private val context: Context) {
         }
     }
 
-    /** Capture a single frame and return it as a [Bitmap]. */
-    fun captureOnce(): Bitmap? = bitmapQueue.poll()
+    /**
+     * Capture a single frame and return it as a [Bitmap].
+     * Blocks until an image is available so callers always receive a bitmap
+     * to process.
+     */
+    fun captureOnce(): Bitmap = bitmapQueue.take()
 
     /** Stop capturing and release resources. */
     fun stopProjection() {

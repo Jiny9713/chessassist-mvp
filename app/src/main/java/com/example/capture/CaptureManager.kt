@@ -125,6 +125,12 @@ class CaptureManager(private val context: Context) {
         }
     }
 
+    /** Stop the periodic capture coroutine if running. */
+    fun stopPeriodicCapture() {
+        periodicCaptureJob?.cancel()
+        periodicCaptureJob = null
+    }
+
     /**
      * Capture a single frame and return it as a [Bitmap].
      * Waits up to [timeoutMs] milliseconds for an image and returns `null`
@@ -139,7 +145,7 @@ class CaptureManager(private val context: Context) {
 
     /** Stop capturing and release resources. */
     fun stopProjection() {
-        periodicCaptureJob?.cancel()
+        stopPeriodicCapture()
         captureHandler?.removeCallbacksAndMessages(null)
         captureThread?.quitSafely()
         captureThread = null

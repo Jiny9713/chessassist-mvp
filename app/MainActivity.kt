@@ -44,13 +44,14 @@ class MainActivity : AppCompatActivity() {
         setContentView(stopButton)
 
         captureManager = CaptureManager(this)
-        val started = startOverlayService(this)
-        if (!started) {
+        if (Settings.canDrawOverlays(this)) {
+            startOverlayService(this)
+        } else {
             val intent = Intent(
                 Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
                 Uri.parse("package:$packageName")
             )
-            startActivity(intent)
+            startActivityForResult(intent, REQUEST_OVERLAY_PERMISSION)
         }
         startActivityForResult(
             captureManager.createScreenCaptureIntent(),
@@ -70,6 +71,10 @@ class MainActivity : AppCompatActivity() {
         if (requestCode == REQUEST_CAPTURE && resultCode == Activity.RESULT_OK && data != null) {
             captureManager.startProjection(resultCode, data)
             startAnalysisLoop()
+        } else if (requestCode == REQUEST_OVERLAY_PERMISSION) {
+            if (Settings.canDrawOverlays(this)) {
+                startOverlayService(this)
+            }
         }
     }
 
@@ -129,6 +134,7 @@ class MainActivity : AppCompatActivity() {
 
     companion object {
         private const val REQUEST_CAPTURE = 1001
+        private const val REQUEST_OVERLAY_PERMISSION = 1002
         private const val TAG = "MainActivity"
     }
 }

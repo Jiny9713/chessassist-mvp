@@ -117,22 +117,25 @@ class MainActivity : AppCompatActivity() {
 
                 // Capture screen
                 val bitmap = try {
-                    withContext(Dispatchers.IO) { captureManager.captureOnce() }
+                    withContext(Dispatchers.IO) { captureManager.captureOnce(1000L) }
                 } catch (e: Exception) {
                     Log.e(TAG, "Capture failed", e)
                     null
                 }
 
+                if (bitmap == null) {
+                    delay(intervalMillis)
+                    continue
+                }
+
                 // Extract FEN
-                val fen = bitmap?.let {
-                    try {
-                        chessvisionRepository.extractFenFromImage(it)
-                    } catch (e: Exception) {
-                        Log.e(TAG, "FEN extraction failed", e)
-                        null
-                    } finally {
-                        it.recycle()
-                    }
+                val fen = try {
+                    chessvisionRepository.extractFenFromImage(bitmap)
+                } catch (e: Exception) {
+                    Log.e(TAG, "FEN extraction failed", e)
+                    null
+                } finally {
+                    bitmap.recycle()
                 }
 
                 // Analyze with Stockfish

@@ -15,6 +15,7 @@ import android.util.Log
 import android.view.Surface
 import androidx.appcompat.app.AppCompatActivity
 import java.util.concurrent.LinkedBlockingQueue
+import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -126,10 +127,15 @@ class CaptureManager(private val context: Context) {
 
     /**
      * Capture a single frame and return it as a [Bitmap].
-     * Blocks until an image is available so callers always receive a bitmap
-     * to process.
+     * Waits up to [timeoutMs] milliseconds for an image and returns `null`
+     * if none is available.
      */
-    fun captureOnce(): Bitmap = bitmapQueue.take()
+    fun captureOnce(timeoutMs: Long = 0): Bitmap? =
+        if (timeoutMs > 0) {
+            bitmapQueue.poll(timeoutMs, TimeUnit.MILLISECONDS)
+        } else {
+            bitmapQueue.poll()
+        }
 
     /** Stop capturing and release resources. */
     fun stopProjection() {

@@ -56,7 +56,6 @@ class MainActivity : AppCompatActivity() {
                 // Capture screen
                 val bitmap = try {
                     captureManager.captureOnce()
-                    captureManager.getBitmaps().lastOrNull()
                 } catch (e: Exception) {
                     Log.e(TAG, "Capture failed", e)
                     null
@@ -69,6 +68,8 @@ class MainActivity : AppCompatActivity() {
                     } catch (e: Exception) {
                         Log.e(TAG, "FEN extraction failed", e)
                         null
+                    } finally {
+                        it.recycle()
                     }
                 }
 

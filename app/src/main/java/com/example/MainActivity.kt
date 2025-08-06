@@ -40,6 +40,7 @@ class MainActivity : AppCompatActivity() {
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
             if (result.resultCode == Activity.RESULT_OK && result.data != null) {
                 captureManager.startProjection(result.resultCode, result.data!!)
+                captureManager.startPeriodicCapture()
                 startAnalysisLoop()
             }
         }
@@ -160,6 +161,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
+        captureManager.stopPeriodicCapture()
         captureManager.stopProjection()
         stopOverlayService(this)
     }

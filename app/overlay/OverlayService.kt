@@ -93,7 +93,9 @@ class OverlayService : Service() {
 
     /** Update overlay text with the latest best move. */
     private fun updateText(text: String) {
-        overlayView?.text = "Best move: $text"
+        overlayView?.post {
+            overlayView?.text = "Best move: $text"
+        }
     }
 
     companion object {

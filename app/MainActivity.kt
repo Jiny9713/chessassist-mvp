@@ -118,8 +118,12 @@ class MainActivity : AppCompatActivity() {
                     }
                 }
 
-                // Update overlay
-                bestMove?.let { updateOverlayText(it) }
+                // Update overlay on the main thread
+                bestMove?.let {
+                    withContext(Dispatchers.Main) {
+                        updateOverlayText(it)
+                    }
+                }
 
                 delay(intervalMillis)
             }

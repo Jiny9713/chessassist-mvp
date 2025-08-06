@@ -100,23 +100,24 @@ class OverlayService : Service() {
         private const val NOTIFICATION_ID = 1
         private var instance: OverlayService? = null
 
-        /** Starts the overlay service after overlay permission is granted. */
-        fun start(context: Context) {
+        /**
+         * Starts the overlay service if permission has been granted.
+         *
+         * @return `true` if the service was started, `false` if permission is
+         * missing and the caller should request it.
+         */
+        fun start(context: Context): Boolean {
             if (!Settings.canDrawOverlays(context)) {
-                val intent = Intent(
-                    Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                    android.net.Uri.parse("package:${'$'}{context.packageName}")
-                )
-                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                context.startActivity(intent)
-            } else {
-                val intent = Intent(context, OverlayService::class.java)
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    context.startForegroundService(intent)
-                } else {
-                    context.startService(intent)
-                }
+                return false
             }
+
+            val intent = Intent(context, OverlayService::class.java)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                context.startForegroundService(intent)
+            } else {
+                context.startService(intent)
+            }
+            return true
         }
 
         /** Stops the overlay service and removes the overlay view. */
@@ -133,7 +134,7 @@ class OverlayService : Service() {
 }
 
 /** Convenience function to start [OverlayService]. */
-fun startOverlayService(context: Context) = OverlayService.start(context)
+fun startOverlayService(context: Context): Boolean = OverlayService.start(context)
 
 /** Convenience function to stop [OverlayService]. */
 fun stopOverlayService(context: Context) = OverlayService.stop(context)

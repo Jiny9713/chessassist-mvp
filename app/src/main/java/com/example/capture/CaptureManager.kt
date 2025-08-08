@@ -16,12 +16,6 @@ import android.view.Surface
 import androidx.appcompat.app.AppCompatActivity
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
-import kotlinx.coroutines.launch
 
 /**
  * Handles screen capture using [MediaProjection]. Each capture returns a [Bitmap]
@@ -37,8 +31,6 @@ class CaptureManager(private val context: Context) {
     companion object {
         private const val TAG = "CaptureManager"
         private const val MAX_IMAGES = 2
-        // Default capture interval suitable for testing; tweak per device performance.
-        private const val DEFAULT_FRAME_INTERVAL_MS = 1000L
     }
 
     private val projectionManager =
@@ -50,7 +42,7 @@ class CaptureManager(private val context: Context) {
     private var captureThread: HandlerThread? = null
     private var captureHandler: Handler? = null
     private val bitmapQueue = LinkedBlockingQueue<Bitmap>(1)
-    private var periodicCaptureJob: Job? = null
+    @Volatile private var captureRequested = false
 
     /** Create an intent to request screen capture permission. */
     fun createScreenCaptureIntent(): Intent = projectionManager.createScreenCaptureIntent()
@@ -73,6 +65,11 @@ class CaptureManager(private val context: Context) {
         captureHandler = Handler(captureThread!!.looper)
         imageReader!!.setOnImageAvailableListener({ reader ->
             val image = reader.acquireLatestImage() ?: return@setOnImageAvailableListener
+            if (!captureRequested) {
+                image.close()
+                return@setOnImageAvailableListener
+            }
+
             val plane = image.planes[0]
             val buffer = plane.buffer
             val pixelStride = plane.pixelStride
@@ -90,6 +87,7 @@ class CaptureManager(private val context: Context) {
             val cropped = Bitmap.createBitmap(bitmap, 0, 0, w, h)
             bitmap.recycle()
             image.close()
+            captureRequested = false
             if (!bitmapQueue.offer(cropped)) {
                 cropped.recycle()
             }
@@ -111,41 +109,25 @@ class CaptureManager(private val context: Context) {
     }
 
     /**
-     * Capture screen on a fixed interval using coroutines.
-     * The default interval of [DEFAULT_FRAME_INTERVAL_MS] works well for testing
-     * but can be tuned per device for performance.
-     */
-    fun startPeriodicCapture(frameIntervalMs: Long = DEFAULT_FRAME_INTERVAL_MS) {
-        periodicCaptureJob?.cancel()
-        periodicCaptureJob = CoroutineScope(Dispatchers.Default).launch {
-            while (isActive) {
-                captureOnce()
-                delay(frameIntervalMs)
-            }
-        }
-    }
-
-    /** Stop the periodic capture coroutine if running. */
-    fun stopPeriodicCapture() {
-        periodicCaptureJob?.cancel()
-        periodicCaptureJob = null
-    }
-
-    /**
-     * Capture a single frame and return it as a [Bitmap].
+     * Request the next available frame and return it as a [Bitmap].
      * Waits up to [timeoutMs] milliseconds for an image and returns `null`
      * if none is available.
      */
-    fun captureOnce(timeoutMs: Long = 0): Bitmap? =
-        if (timeoutMs > 0) {
+    fun captureOnce(timeoutMs: Long = 0): Bitmap? {
+        captureRequested = true
+        val bitmap = if (timeoutMs > 0) {
             bitmapQueue.poll(timeoutMs, TimeUnit.MILLISECONDS)
         } else {
             bitmapQueue.poll()
         }
+        if (bitmap == null) {
+            captureRequested = false
+        }
+        return bitmap
+    }
 
     /** Stop capturing and release resources. */
     fun stopProjection() {
-        stopPeriodicCapture()
         captureHandler?.removeCallbacksAndMessages(null)
         captureThread?.quitSafely()
         captureThread = null
@@ -182,7 +164,6 @@ class ScreenCaptureActivity : AppCompatActivity() {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode == REQUEST_CODE && resultCode == Activity.RESULT_OK && data != null) {
             captureManager.startProjection(resultCode, data)
-            captureManager.startPeriodicCapture(5000L)
         }
     }
 
